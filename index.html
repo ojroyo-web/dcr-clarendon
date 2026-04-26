@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>DCR Clarendon Case Review System — Admin Fix v2</title>
+<title>DCR Clarendon Case Review System — Password Fix v1</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{
@@ -80,6 +80,20 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   </div>
 </div>
 
+
+<div id="recoveryWrap" class="login-wrap hidden">
+  <div class="login-card">
+    <h1>DCR Clarendon</h1>
+    <div class="sub">Create New Password</div>
+    <div id="recoveryMsg" class="msg hidden"></div>
+    <div class="field"><label>New Password</label><input id="recoverPass1" type="password" autocomplete="new-password"></div>
+    <div class="field"><label>Confirm New Password</label><input id="recoverPass2" type="password" autocomplete="new-password"></div>
+    <button class="btn btn-primary" onclick="updateRecoveredPassword()">Update Password</button>
+    <button class="btn btn-dark" style="margin-top:8px" onclick="location.href='https://ojroyo-web.github.io/dcr-clarendon/?v=passwordfix1'">Return to Login</button>
+    <div class="sub" style="margin-top:18px;text-align:center;font-size:12px;opacity:.82">Developed by Royal</div>
+  </div>
+</div>
+
 <div id="loginAlert" class="alert-backdrop hidden no-print">
   <div class="alert-modal">
     <div class="alert-title">DCR Review Alert</div>
@@ -101,7 +115,7 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   <aside class="sidebar no-print">
     <div class="brand">
       <h2>DCR Command Centre</h2>
-      <p>Clarendon Division</p><p style="opacity:.45;font-size:10px">Build: Admin Fix v2</p>
+      <p>Clarendon Division</p><p style="opacity:.45;font-size:10px">Build: Password Fix v1</p>
       <p id="whoami"></p>
     </div>
     <div class="nav">
@@ -112,6 +126,7 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
       <button onclick="showSec('due')">⏰ Due Reviews</button>
       <button onclick="showSec('reports')">📈 Reports / Export</button>
       <button id="adminNav" onclick="showSec('admin')" class="hidden">⚙ Admin</button>
+      <button onclick="showSec('account')">🔐 Account Settings</button>
       <button onclick="logout()">🚪 Logout</button>
     </div>
   </aside>
@@ -204,6 +219,24 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
       </div>
     </section>
 
+
+    <section id="account" class="section">
+      <div class="grid">
+        <div class="card">
+          <h3>Change Password</h3>
+          <p class="sub">Use this section to change your password while logged in.</p>
+          <div id="accountMsg" class="msg hidden"></div>
+          <div class="field"><label>New Password</label><input id="accountPass1" type="password" autocomplete="new-password"></div>
+          <div class="field"><label>Confirm New Password</label><input id="accountPass2" type="password" autocomplete="new-password"></div>
+          <button class="btn btn-primary" onclick="changeLoggedInPassword()">Update Password</button>
+        </div>
+        <div class="card">
+          <h3>Password Guidance</h3>
+          <p class="sub">Use a password that is not shared with anyone. Admin can reset access through Supabase recovery, but cannot see your private password.</p>
+        </div>
+      </div>
+    </section>
+
     <section id="admin" class="section">
       <div class="grid">
         <div class="card">
@@ -232,6 +265,63 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 </div>
 
 <script>
+
+let isPasswordRecoveryMode=false;
+
+function showRecoveryMessage(t){
+  let m=document.getElementById('recoveryMsg');
+  m.textContent=t;
+  m.classList.remove('hidden');
+}
+function showAccountMessage(t){
+  let m=document.getElementById('accountMsg');
+  m.textContent=t;
+  m.classList.remove('hidden');
+}
+async function updateRecoveredPassword(){
+  const p1=document.getElementById('recoverPass1').value;
+  const p2=document.getElementById('recoverPass2').value;
+  if(p1.length<6)return showRecoveryMessage('Password must be at least 6 characters.');
+  if(p1!==p2)return showRecoveryMessage('Passwords do not match.');
+  const {error}=await sb.auth.updateUser({password:p1});
+  if(error)return showRecoveryMessage(error.message);
+  showRecoveryMessage('Password updated successfully. You may now login with your new password.');
+  setTimeout(async()=>{await sb.auth.signOut(); location.href='https://ojroyo-web.github.io/dcr-clarendon/?v=passwordfix1';},1800);
+}
+async function changeLoggedInPassword(){
+  const p1=document.getElementById('accountPass1').value;
+  const p2=document.getElementById('accountPass2').value;
+  if(p1.length<6)return showAccountMessage('Password must be at least 6 characters.');
+  if(p1!==p2)return showAccountMessage('Passwords do not match.');
+  const {error}=await sb.auth.updateUser({password:p1});
+  if(error)return showAccountMessage(error.message);
+  await audit('CHANGE PASSWORD','User changed own password');
+  document.getElementById('accountPass1').value='';
+  document.getElementById('accountPass2').value='';
+  showAccountMessage('Password updated successfully.');
+}
+
+// Supabase password recovery links arrive with tokens in the URL hash.
+// When detected, show the password reset screen instead of normal login.
+sb.auth.onAuthStateChange(async (event, session) => {
+  if(event === 'PASSWORD_RECOVERY'){
+    isPasswordRecoveryMode=true;
+    document.getElementById('loginWrap').classList.add('hidden');
+    document.getElementById('app').classList.add('hidden');
+    document.getElementById('recoveryWrap').classList.remove('hidden');
+  }
+});
+
+(async function detectRecoveryOnLoad(){
+  const hash=window.location.hash || '';
+  const search=window.location.search || '';
+  if(hash.includes('type=recovery') || search.includes('type=recovery')){
+    document.getElementById('loginWrap').classList.add('hidden');
+    document.getElementById('app').classList.add('hidden');
+    document.getElementById('recoveryWrap').classList.remove('hidden');
+  }
+})();
+
 let currentUser=null, currentProfile=null, editId=null;
 let RECORDS=[], INVESTIGATORS=[], PROFILES=[], AUDIT=[], LOGINS=[], DELETED=[], SETTINGS={};
 
