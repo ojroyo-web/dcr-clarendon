@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>DCR Clarendon Case Review System — Recovery v2</title>
+<title>DCR Clarendon Case Review System — User Management v1</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{
@@ -44,7 +44,7 @@ th,td{border:1px solid var(--line);padding:10px;text-align:left;vertical-align:t
 .alert-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px}
 .alert-modal{max-width:620px;width:100%;background:#0d1b2f;border:1px solid var(--line);border-radius:20px;padding:22px;box-shadow:0 25px 80px rgba(0,0,0,.55)}
 .alert-title{color:var(--gold);font-size:24px;margin-bottom:8px}.alert-stats{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:16px 0}.alert-stat{background:#10233d;border:1px solid var(--line);border-radius:14px;padding:14px}.alert-stat .big{font-size:34px;font-weight:900}.alert-stat small{color:var(--muted)}
-.review-history{font-size:12px;color:var(--muted);line-height:1.45}.review-history b{color:var(--gold)}
+.review-history{font-size:12px;color:var(--muted);line-height:1.45}.review-history b{color:var(--gold)} .disabled-user{opacity:.55;text-decoration:line-through}
 @media(max-width:900px){.app{grid-template-columns:1fr}.sidebar{height:auto;position:relative}.cards,.grid,.grid3,.alert-stats{grid-template-columns:1fr}.victim-row{grid-template-columns:1fr}.topbar{display:block}}
 @media print{body{background:#fff;color:#000}.sidebar,.topbar,.no-print,.btn,.toolbar{display:none!important}.app{display:block}.main{padding:0}.section{display:none!important}.section.printme{display:block!important}table{color:#000;background:#fff}th{background:#eee;color:#000}th,td{border:1px solid #000;font-size:10px;padding:6px}.card{box-shadow:none;border:1px solid #000;color:#000;background:#fff}@page{size:landscape;margin:10mm}}
 </style>
@@ -89,7 +89,7 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     <div class="field"><label>New Password</label><input id="recoverPass1" type="password" autocomplete="new-password"></div>
     <div class="field"><label>Confirm New Password</label><input id="recoverPass2" type="password" autocomplete="new-password"></div>
     <button class="btn btn-primary" onclick="updateRecoveredPassword()">Update Password</button>
-    <button class="btn btn-dark" style="margin-top:8px" onclick="location.href='https://ojroyo-web.github.io/dcr-clarendon/?v=recoveryv2'">Return to Login</button>
+    <button class="btn btn-dark" style="margin-top:8px" onclick="location.href='https://ojroyo-web.github.io/dcr-clarendon/?v=usermgmt1'">Return to Login</button>
     <div class="sub" style="margin-top:18px;text-align:center;font-size:12px;opacity:.82">Developed by Royal</div>
   </div>
 </div>
@@ -98,7 +98,7 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 <div id="adminRecoveryWrap" class="login-wrap hidden">
   <div class="login-card">
     <h1>DCR Clarendon</h1>
-    <div class="sub">Admin Recovery v2</div>
+    <div class="sub">Admin User Management v1</div>
     <div id="adminRecoveryMsg" class="msg hidden"></div>
     <p class="sub">Enter the Admin email and saved 4-digit Recovery PIN. If verified, a secure password reset email will be sent.</p>
     <div class="field"><label>Admin Email</label><input id="recoveryEmail" type="email" placeholder="admin email"></div>
@@ -130,7 +130,7 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   <aside class="sidebar no-print">
     <div class="brand">
       <h2>DCR Command Centre</h2>
-      <p>Clarendon Division</p><p style="opacity:.45;font-size:10px">Build: Recovery v2</p>
+      <p>Clarendon Division</p><p style="opacity:.45;font-size:10px">Build: User Management v1</p>
       <p id="whoami"></p>
     </div>
     <div class="nav">
@@ -255,12 +255,15 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     <section id="admin" class="section">
       <div class="grid">
         <div class="card">
-          <h3>User Management</h3>
-          <p class="sub">Static HTML cannot safely create Supabase Auth users by itself. Create users in Supabase Auth first, then add their profile here with the same email.</p>
-          <div class="field"><label>User Email</label><input id="adminNewUser"></div>
-          <div class="field"><label>Display Name</label><input id="adminDisplayName"></div>
+          <h3>User Management v1</h3>
+          <p class="sub">Create staff accounts, assign roles, reset passwords and deactivate users directly from the DCR app.</p>
+          <div id="userMgmtMsg" class="msg hidden"></div>
+          <div class="field"><label>User Email</label><input id="adminNewUser" type="email" placeholder="staff email"></div>
+          <div class="field"><label>Display Name</label><input id="adminDisplayName" placeholder="full name / rank"></div>
           <div class="field"><label>Role</label><select id="adminNewRole"><option value="user">User</option><option value="supervisor">Supervisor</option><option value="admin">Admin</option></select></div>
-          <button class="btn btn-primary" onclick="adminAddProfile()">Add / Update Profile</button>
+          <div class="field"><label>Temporary Password</label><input id="adminTempPass" value="ChangeMe123" placeholder="temporary password"></div>
+          <button class="btn btn-primary" onclick="adminCreateUser()">Create User</button>
+          <button class="btn btn-blue" onclick="adminUpdateProfile()">Update Profile Only</button>
           <div id="usersTable" style="margin-top:14px"></div>
         </div>
         <div class="card">
@@ -301,7 +304,7 @@ async function updateRecoveredPassword(){
   const {error}=await sb.auth.updateUser({password:p1});
   if(error)return showRecoveryMessage(error.message);
   showRecoveryMessage('Password updated successfully. You may now login with your new password.');
-  setTimeout(async()=>{await sb.auth.signOut(); location.href='https://ojroyo-web.github.io/dcr-clarendon/?v=recoveryv2';},1800);
+  setTimeout(async()=>{await sb.auth.signOut(); location.href='https://ojroyo-web.github.io/dcr-clarendon/?v=usermgmt1';},1800);
 }
 async function changeLoggedInPassword(){
   const p1=document.getElementById('accountPass1').value;
@@ -544,17 +547,73 @@ function printDueSoonOnly(){closeLoginAlert();printDueSoonTable.innerHTML=tableR
 function printOverdueOnly(){closeLoginAlert();printOverdueTable.innerHTML=tableRows(overdueRecords(),false);printSection('printOverdue')}
 function printSection(id){document.querySelectorAll('.section').forEach(s=>s.classList.remove('printme'));document.getElementById(id).classList.add('printme');window.print()}
 
-async function adminAddProfile(){
- if(!isAdmin())return alert('Admin only.');
- let email=adminNewUser.value.trim(), display=adminDisplayName.value.trim(), r=adminNewRole.value;
- if(!email)return alert('Enter user email.');
- const {data:authList,error:e1}=await sb.from('profiles').select('*').eq('email',email).maybeSingle();
- let profile={email,display_name:display||email,role:r};
- if(authList?.id) profile.id=authList.id;
- const {error}=await sb.from('profiles').upsert(profile,{onConflict:'email'});
- if(error)return alert(error.message);
- await audit('ADD/UPDATE PROFILE',email+' as '+r); await renderAll();
+function userMgmtMessage(t){
+ let m=document.getElementById('userMgmtMsg');
+ m.textContent=t; m.classList.remove('hidden');
 }
+async function callAdminUserFunction(payload){
+ const {data,error}=await sb.functions.invoke('admin-user-management',{body:payload});
+ if(error) throw error;
+ if(data && data.error) throw new Error(data.error);
+ return data;
+}
+async function adminCreateUser(){
+ if(!isAdmin())return alert('Admin only.');
+ let email=adminNewUser.value.trim().toLowerCase();
+ let display=adminDisplayName.value.trim();
+ let r=adminNewRole.value;
+ let temp=adminTempPass.value.trim();
+ if(!email)return userMgmtMessage('Enter user email.');
+ if(!temp || temp.length<6)return userMgmtMessage('Temporary password must be at least 6 characters.');
+ try{
+   let res=await callAdminUserFunction({action:'create_user',email,display_name:display||email,role:r,temp_password:temp});
+   await audit('ADMIN CREATE USER',email+' as '+r);
+   userMgmtMessage(res.message||'User created successfully.');
+   adminNewUser.value=''; adminDisplayName.value=''; adminTempPass.value='ChangeMe123';
+   await renderAll();
+ }catch(e){userMgmtMessage(e.message||String(e));}
+}
+async function adminUpdateProfile(){
+ if(!isAdmin())return alert('Admin only.');
+ let email=adminNewUser.value.trim().toLowerCase();
+ let display=adminDisplayName.value.trim();
+ let r=adminNewRole.value;
+ if(!email)return userMgmtMessage('Enter user email.');
+ try{
+   let res=await callAdminUserFunction({action:'update_profile',email,display_name:display||email,role:r});
+   await audit('ADMIN UPDATE PROFILE',email+' as '+r);
+   userMgmtMessage(res.message||'Profile updated.');
+   await renderAll();
+ }catch(e){userMgmtMessage(e.message||String(e));}
+}
+async function adminResetUserPassword(email){
+ let temp=prompt('Enter temporary password for '+email,'ChangeMe123');
+ if(!temp)return;
+ try{
+   let res=await callAdminUserFunction({action:'reset_password',email,temp_password:temp});
+   await audit('ADMIN RESET PASSWORD',email);
+   alert(res.message||'Password reset.');
+   await renderAll();
+ }catch(e){alert(e.message||String(e));}
+}
+async function adminDisableUser(email){
+ if(!confirm('Deactivate this user account?'))return;
+ try{
+   let res=await callAdminUserFunction({action:'disable_user',email});
+   await audit('ADMIN DISABLE USER',email);
+   alert(res.message||'User deactivated.');
+   await renderAll();
+ }catch(e){alert(e.message||String(e));}
+}
+async function adminEnableUser(email){
+ try{
+   let res=await callAdminUserFunction({action:'enable_user',email});
+   await audit('ADMIN ENABLE USER',email);
+   alert(res.message||'User reactivated.');
+   await renderAll();
+ }catch(e){alert(e.message||String(e));}
+}
+
 async function changeRecoveryPin(){
  if(!isAdmin())return alert('Admin only.');
  let pin=newRecoveryPin.value.trim(); if(!/^\d{4}$/.test(pin))return alert('PIN must be exactly 4 digits.');
@@ -565,7 +624,7 @@ async function changeRecoveryPin(){
 }
 function renderAdmin(){
  if(!isAdmin())return;
- usersTable.innerHTML=`<table><tr><th>Email</th><th>Name</th><th>Role</th></tr>${PROFILES.map(u=>`<tr><td>${u.email}</td><td>${u.display_name||''}</td><td>${u.role}</td></tr>`).join('')}</table>`;
+ usersTable.innerHTML=`<table><tr><th>Email</th><th>Name</th><th>Role</th><th>Status</th><th class="no-print">Action</th></tr>${PROFILES.map(u=>`<tr class="${u.disabled?'disabled-user':''}"><td>${u.email}</td><td>${u.display_name||''}</td><td>${u.role}</td><td>${u.disabled?'Disabled':'Active'}</td><td class="no-print"><button class="btn btn-blue btn-small" onclick="adminResetUserPassword('${u.email}')">Reset Password</button>${u.disabled?`<button class="btn btn-green btn-small" onclick="adminEnableUser('${u.email}')">Enable</button>`:`<button class="btn btn-red btn-small" onclick="adminDisableUser('${u.email}')">Disable</button>`}</td></tr>`).join('')}</table>`;
  loginLog.innerHTML=LOGINS.map(l=>`<div>${new Date(l.created_at).toLocaleString()} — ${l.email} (${l.role})</div>`).join('')||'No logins.';
  auditLog.innerHTML=AUDIT.map(a=>`<div>${new Date(a.created_at).toLocaleString()} — <b>${a.email||''}</b> — ${a.action}: ${a.details}</div>`).join('')||'No audit logs.';
  deletedLog.innerHTML=DELETED.map(x=>`<div><b>${x.case_no}</b> deleted by ${x.deleted_by_email} at ${new Date(x.deleted_at).toLocaleString()}</div>`).join('')||'No deleted imprints.';
@@ -602,7 +661,7 @@ async function submitAdminRecovery(){
     return showAdminRecoveryMessage(data?.message || 'Recovery denied.');
   }
 
-  const redirectTo='https://ojroyo-web.github.io/dcr-clarendon/?v=recoveryv2';
+  const redirectTo='https://ojroyo-web.github.io/dcr-clarendon/?v=usermgmt1';
   const {error:resetError}=await sb.auth.resetPasswordForEmail(email,{redirectTo});
   if(resetError)return showAdminRecoveryMessage(resetError.message);
 
