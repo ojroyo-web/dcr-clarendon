@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>DCR Clarendon Case Review System — Supabase Ready</title>
+<title>DCR Clarendon Case Review System — Admin Fix v2</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{
@@ -101,7 +101,7 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   <aside class="sidebar no-print">
     <div class="brand">
       <h2>DCR Command Centre</h2>
-      <p>Clarendon Division</p>
+      <p>Clarendon Division</p><p style="opacity:.45;font-size:10px">Build: Admin Fix v2</p>
       <p id="whoami"></p>
     </div>
     <div class="nav">
@@ -261,8 +261,24 @@ async function login(){
 async function logout(){await sb.auth.signOut();location.reload()}
 
 async function loadProfile(){
-  // Look up profile by email first. This is more reliable for the GitHub Pages + Supabase setup.
   const email = (currentUser.email || '').toLowerCase();
+
+  // Emergency production-safe admin override:
+  // This only works after Supabase successfully authenticates this exact email.
+  if(email === 'ojroyo@yahoo.com'){
+    currentProfile={
+      id: currentUser.id,
+      email: currentUser.email,
+      display_name: 'Omar Royal',
+      role: 'admin'
+    };
+
+    // Keep Supabase profile table aligned when possible.
+    await sb.from('profiles').upsert(currentProfile,{onConflict:'email'});
+    return;
+  }
+
+  // Normal profile lookup for all other users.
   const {data,error}=await sb.from('profiles').select('*').ilike('email',email).maybeSingle();
 
   if(data){
@@ -270,7 +286,6 @@ async function loadProfile(){
     return;
   }
 
-  // Only create a fallback profile if no profile exists at all.
   currentProfile={id:currentUser.id,email:currentUser.email,display_name:currentUser.email,role:'user'};
   await sb.from('profiles').upsert(currentProfile,{onConflict:'email'});
 }
