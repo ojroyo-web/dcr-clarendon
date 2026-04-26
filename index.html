@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>DCR Clarendon Case Review System — User Management v3</title>
+<title>DCR Clarendon Case Review System — Forced Password Change v1</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{
@@ -89,7 +89,7 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     <div class="field"><label>New Password</label><input id="recoverPass1" type="password" autocomplete="new-password"></div>
     <div class="field"><label>Confirm New Password</label><input id="recoverPass2" type="password" autocomplete="new-password"></div>
     <button class="btn btn-primary" onclick="updateRecoveredPassword()">Update Password</button>
-    <button class="btn btn-dark" style="margin-top:8px" onclick="location.href='https://ojroyo-web.github.io/dcr-clarendon/?v=usermgmt3'">Return to Login</button>
+    <button class="btn btn-dark" style="margin-top:8px" onclick="location.href='https://ojroyo-web.github.io/dcr-clarendon/?v=forcepass1'">Return to Login</button>
     <div class="sub" style="margin-top:18px;text-align:center;font-size:12px;opacity:.82">Developed by Royal</div>
   </div>
 </div>
@@ -98,13 +98,28 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 <div id="adminRecoveryWrap" class="login-wrap hidden">
   <div class="login-card">
     <h1>DCR Clarendon</h1>
-    <div class="sub">Admin User Management v3</div>
+    <div class="sub">Admin Forced Password Change v1</div>
     <div id="adminRecoveryMsg" class="msg hidden"></div>
     <p class="sub">Enter the Admin email and saved 4-digit Recovery PIN. If verified, a secure password reset email will be sent.</p>
     <div class="field"><label>Admin Email</label><input id="recoveryEmail" type="email" placeholder="admin email"></div>
     <div class="field"><label>4-Digit Recovery PIN</label><input id="recoveryPin" maxlength="4" inputmode="numeric" placeholder="••••"></div>
     <button class="btn btn-primary" onclick="submitAdminRecovery()">Send Recovery Email</button>
     <button class="btn btn-dark" style="margin-top:8px" onclick="showLoginScreen()">Return to Login</button>
+    <div class="sub" style="margin-top:18px;text-align:center;font-size:12px;opacity:.82">Developed by Royal</div>
+  </div>
+</div>
+
+
+<div id="forcePasswordWrap" class="login-wrap hidden">
+  <div class="login-card">
+    <h1>DCR Clarendon</h1>
+    <div class="sub">Password Change Required</div>
+    <div id="forcePassMsg" class="msg hidden"></div>
+    <p class="sub">You are using a temporary password. Create your private password before continuing.</p>
+    <div class="field"><label>New Password</label><input id="forcePass1" type="password" autocomplete="new-password"></div>
+    <div class="field"><label>Confirm New Password</label><input id="forcePass2" type="password" autocomplete="new-password"></div>
+    <button class="btn btn-primary" onclick="completeForcedPasswordChange()">Save Password & Continue</button>
+    <button class="btn btn-dark" style="margin-top:8px" onclick="logout()">Logout</button>
     <div class="sub" style="margin-top:18px;text-align:center;font-size:12px;opacity:.82">Developed by Royal</div>
   </div>
 </div>
@@ -130,7 +145,7 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   <aside class="sidebar no-print">
     <div class="brand">
       <h2>DCR Command Centre</h2>
-      <p>Clarendon Division</p><p style="opacity:.45;font-size:10px">Build: User Management v3</p>
+      <p>Clarendon Division</p><p style="opacity:.45;font-size:10px">Build: Forced Password Change v1</p>
       <p id="whoami"></p>
     </div>
     <div class="nav">
@@ -255,7 +270,7 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     <section id="admin" class="section">
       <div class="grid">
         <div class="card">
-          <h3>User Management v3</h3>
+          <h3>Forced Password Change v1</h3>
           <p class="sub">Create staff accounts, assign roles, reset passwords and deactivate users directly from the DCR app.</p>
           <div id="userMgmtMsg" class="msg hidden"></div>
           <div class="field"><label>User Email</label><input id="adminNewUser" type="email" placeholder="staff email"></div>
@@ -291,6 +306,32 @@ function showRecoveryMessage(t){
   m.textContent=t;
   m.classList.remove('hidden');
 }
+
+function showForcePassMessage(t){
+  let m=document.getElementById('forcePassMsg');
+  m.textContent=t;
+  m.classList.remove('hidden');
+}
+async function completeForcedPasswordChange(){
+  const p1=document.getElementById('forcePass1').value;
+  const p2=document.getElementById('forcePass2').value;
+  if(p1.length<6)return showForcePassMessage('Password must be at least 6 characters.');
+  if(p1!==p2)return showForcePassMessage('Passwords do not match.');
+  const {error}=await sb.auth.updateUser({password:p1});
+  if(error)return showForcePassMessage(error.message);
+
+  const {error:profileError}=await sb.from('profiles')
+    .update({must_change_password:false})
+    .ilike('email', currentUser.email);
+
+  if(profileError)return showForcePassMessage('Password changed, but profile update failed: '+profileError.message);
+
+  await audit('FORCED PASSWORD CHANGE','User changed temporary password');
+  await loadProfile();
+  document.getElementById('forcePasswordWrap').classList.add('hidden');
+  await startApp();
+}
+
 function showAccountMessage(t){
   let m=document.getElementById('accountMsg');
   m.textContent=t;
@@ -304,7 +345,7 @@ async function updateRecoveredPassword(){
   const {error}=await sb.auth.updateUser({password:p1});
   if(error)return showRecoveryMessage(error.message);
   showRecoveryMessage('Password updated successfully. You may now login with your new password.');
-  setTimeout(async()=>{await sb.auth.signOut(); location.href='https://ojroyo-web.github.io/dcr-clarendon/?v=usermgmt3';},1800);
+  setTimeout(async()=>{await sb.auth.signOut(); location.href='https://ojroyo-web.github.io/dcr-clarendon/?v=forcepass1';},1800);
 }
 async function changeLoggedInPassword(){
   const p1=document.getElementById('accountPass1').value;
@@ -313,6 +354,7 @@ async function changeLoggedInPassword(){
   if(p1!==p2)return showAccountMessage('Passwords do not match.');
   const {error}=await sb.auth.updateUser({password:p1});
   if(error)return showAccountMessage(error.message);
+  await sb.from('profiles').update({must_change_password:false}).ilike('email', currentUser.email);
   await audit('CHANGE PASSWORD','User changed own password');
   document.getElementById('accountPass1').value='';
   document.getElementById('accountPass2').value='';
@@ -362,6 +404,20 @@ async function login(){
   if(error){showMsg(error.message);return}
   currentUser=data.user;
   await loadProfile();
+
+  if(currentProfile && currentProfile.disabled){
+    showMsg('This account has been disabled. Contact the System Admin.');
+    await sb.auth.signOut();
+    return;
+  }
+
+  if(currentProfile && currentProfile.must_change_password){
+    document.getElementById('loginWrap').classList.add('hidden');
+    document.getElementById('app').classList.add('hidden');
+    document.getElementById('forcePasswordWrap').classList.remove('hidden');
+    return;
+  }
+
   await logLogin();
   startApp();
 }
@@ -624,7 +680,7 @@ async function changeRecoveryPin(){
 }
 function renderAdmin(){
  if(!isAdmin())return;
- usersTable.innerHTML=`<table><tr><th>Email</th><th>Name</th><th>Role</th><th>Status</th><th class="no-print">Action</th></tr>${PROFILES.map(u=>`<tr class="${u.disabled?'disabled-user':''}"><td>${u.email}</td><td>${u.display_name||''}</td><td>${u.role}</td><td>${u.disabled?'Disabled':'Active'}</td><td class="no-print"><button class="btn btn-blue btn-small" onclick="adminResetUserPassword('${u.email}')">Reset Password</button>${u.disabled?`<button class="btn btn-green btn-small" onclick="adminEnableUser('${u.email}')">Enable</button>`:`<button class="btn btn-red btn-small" onclick="adminDisableUser('${u.email}')">Disable</button>`}</td></tr>`).join('')}</table>`;
+ usersTable.innerHTML=`<table><tr><th>Email</th><th>Name</th><th>Role</th><th>Status</th><th class="no-print">Action</th></tr>${PROFILES.map(u=>`<tr class="${u.disabled?'disabled-user':''}"><td>${u.email}</td><td>${u.display_name||''}</td><td>${u.role}</td><td>${u.disabled?'Disabled':(u.must_change_password?'Temp Password':'Active')}</td><td class="no-print"><button class="btn btn-blue btn-small" onclick="adminResetUserPassword('${u.email}')">Reset Password</button>${u.disabled?`<button class="btn btn-green btn-small" onclick="adminEnableUser('${u.email}')">Enable</button>`:`<button class="btn btn-red btn-small" onclick="adminDisableUser('${u.email}')">Disable</button>`}</td></tr>`).join('')}</table>`;
  loginLog.innerHTML=LOGINS.map(l=>`<div>${new Date(l.created_at).toLocaleString()} — ${l.email} (${l.role})</div>`).join('')||'No logins.';
  auditLog.innerHTML=AUDIT.map(a=>`<div>${new Date(a.created_at).toLocaleString()} — <b>${a.email||''}</b> — ${a.action}: ${a.details}</div>`).join('')||'No audit logs.';
  deletedLog.innerHTML=DELETED.map(x=>`<div><b>${x.case_no}</b> deleted by ${x.deleted_by_email} at ${new Date(x.deleted_at).toLocaleString()}</div>`).join('')||'No deleted imprints.';
@@ -661,7 +717,7 @@ async function submitAdminRecovery(){
     return showAdminRecoveryMessage(data?.message || 'Recovery denied.');
   }
 
-  const redirectTo='https://ojroyo-web.github.io/dcr-clarendon/?v=usermgmt3';
+  const redirectTo='https://ojroyo-web.github.io/dcr-clarendon/?v=forcepass1';
   const {error:resetError}=await sb.auth.resetPasswordForEmail(email,{redirectTo});
   if(resetError)return showAdminRecoveryMessage(resetError.message);
 
