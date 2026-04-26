@@ -261,11 +261,18 @@ async function login(){
 async function logout(){await sb.auth.signOut();location.reload()}
 
 async function loadProfile(){
-  const {data,error}=await sb.from('profiles').select('*').eq('id',currentUser.id).single();
-  if(error || !data){
-    currentProfile={id:currentUser.id,email:currentUser.email,display_name:currentUser.email,role:'user'};
-    await sb.from('profiles').upsert(currentProfile);
-  } else currentProfile=data;
+  // Look up profile by email first. This is more reliable for the GitHub Pages + Supabase setup.
+  const email = (currentUser.email || '').toLowerCase();
+  const {data,error}=await sb.from('profiles').select('*').ilike('email',email).maybeSingle();
+
+  if(data){
+    currentProfile=data;
+    return;
+  }
+
+  // Only create a fallback profile if no profile exists at all.
+  currentProfile={id:currentUser.id,email:currentUser.email,display_name:currentUser.email,role:'user'};
+  await sb.from('profiles').upsert(currentProfile,{onConflict:'email'});
 }
 
 async function logLogin(){
