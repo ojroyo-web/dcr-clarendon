@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>DCR Clarendon Case Review System — Forced Password Change v1</title>
+<title>DCR Clarendon Case Review System — Ownership Controls v4</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{
@@ -89,7 +89,7 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     <div class="field"><label>New Password</label><input id="recoverPass1" type="password" autocomplete="new-password"></div>
     <div class="field"><label>Confirm New Password</label><input id="recoverPass2" type="password" autocomplete="new-password"></div>
     <button class="btn btn-primary" onclick="updateRecoveredPassword()">Update Password</button>
-    <button class="btn btn-dark" style="margin-top:8px" onclick="location.href='https://ojroyo-web.github.io/dcr-clarendon/?v=forcepass1'">Return to Login</button>
+    <button class="btn btn-dark" style="margin-top:8px" onclick="location.href='https://ojroyo-web.github.io/dcr-clarendon/?v=ownershipv4'">Return to Login</button>
     <div class="sub" style="margin-top:18px;text-align:center;font-size:12px;opacity:.82">Developed by Royal</div>
   </div>
 </div>
@@ -98,7 +98,7 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 <div id="adminRecoveryWrap" class="login-wrap hidden">
   <div class="login-card">
     <h1>DCR Clarendon</h1>
-    <div class="sub">Admin Forced Password Change v1</div>
+    <div class="sub">Admin Ownership Controls v4</div>
     <div id="adminRecoveryMsg" class="msg hidden"></div>
     <p class="sub">Enter the Admin email and saved 4-digit Recovery PIN. If verified, a secure password reset email will be sent.</p>
     <div class="field"><label>Admin Email</label><input id="recoveryEmail" type="email" placeholder="admin email"></div>
@@ -145,7 +145,7 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   <aside class="sidebar no-print">
     <div class="brand">
       <h2>DCR Command Centre</h2>
-      <p>Clarendon Division</p><p style="opacity:.45;font-size:10px">Build: Forced Password Change v1</p>
+      <p>Clarendon Division</p><p style="opacity:.45;font-size:10px">Build: Ownership Controls v4</p>
       <p id="whoami"></p>
     </div>
     <div class="nav">
@@ -175,7 +175,7 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
       </div>
       <div class="grid">
         <div class="card"><h3>System Notice</h3><p class="sub">Dashboard values are calculated from live Supabase records. Deleted records remain as imprints until permanently removed by Admin.</p></div>
-        <div class="card"><h3>Permission Summary</h3><p class="sub">Users may add and edit only their own entries. Supervisors may edit all entries. Admins manage records, logs, and PIN settings.</p></div>
+        <div class="card"><h3>Permission Summary</h3><p class="sub">Users may view all records and add entries, but may edit only records they created. Supervisors may edit all entries. Only Admin may delete records and manage users.</p></div>
       </div>
     </section>
 
@@ -209,6 +209,7 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     </section>
 
     <section id="records" class="section">
+      <div class="notice no-print"><b>Ownership Rule:</b> All users can view all records. Users may edit only records they created. Supervisors/Admin may edit all. Only Admin may delete.</div>
       <div class="toolbar no-print">
         <input id="searchBox" placeholder="Search case no., suspect, complainant, offence, Assignee/I.O." oninput="renderRecords()">
         <button class="btn btn-primary" onclick="printSection('records')">Export / Print PDF</button>
@@ -270,7 +271,7 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     <section id="admin" class="section">
       <div class="grid">
         <div class="card">
-          <h3>Forced Password Change v1</h3>
+          <h3>Ownership Controls v4</h3>
           <p class="sub">Create staff accounts, assign roles, reset passwords and deactivate users directly from the DCR app.</p>
           <div id="userMgmtMsg" class="msg hidden"></div>
           <div class="field"><label>User Email</label><input id="adminNewUser" type="email" placeholder="staff email"></div>
@@ -345,7 +346,7 @@ async function updateRecoveredPassword(){
   const {error}=await sb.auth.updateUser({password:p1});
   if(error)return showRecoveryMessage(error.message);
   showRecoveryMessage('Password updated successfully. You may now login with your new password.');
-  setTimeout(async()=>{await sb.auth.signOut(); location.href='https://ojroyo-web.github.io/dcr-clarendon/?v=forcepass1';},1800);
+  setTimeout(async()=>{await sb.auth.signOut(); location.href='https://ojroyo-web.github.io/dcr-clarendon/?v=ownershipv4';},1800);
 }
 async function changeLoggedInPassword(){
   const p1=document.getElementById('accountPass1').value;
@@ -513,7 +514,7 @@ function clearForm(){editId=null;['caseNo','offence','dateCommitted','complainan
 async function saveEntry(){
   let oldRec=null;
   if(editId) oldRec=RECORDS.find(x=>x.id===editId);
-  if(oldRec && role()==='user' && oldRec.created_by!==currentUser.id) return alert('You can only edit entries you created.');
+  if(oldRec && !canEdit(oldRec)) return alert('Access denied. You can only edit records you created.');
   let history=oldRec?.review_history||[];
   let rec={
     case_no:caseNo.value.trim(),offence:offence.value.trim(),date_committed:dateCommitted.value||null,
@@ -555,9 +556,11 @@ function reviewHistoryText(r){
  if(!h.length)return '<span class="sub">No review history</span>';
  return '<div class="review-history">'+h.map((x,i)=>`<div><b>${i+1}.</b> ${x.time} — ${x.user}<br>${x.reviewType||''}: ${x.toReviewDate||''} → ${x.toNextReviewDate||''}<br><em>${x.note||''}</em></div>`).join('<hr style="border-color:rgba(255,255,255,.08)">')+'</div>';
 }
-function canEdit(r){return isSupervisor() || r.created_by===currentUser.id}
+function ownsRecord(r){return r.created_by===currentUser.id || (r.created_by_email && String(r.created_by_email).toLowerCase()===String(currentUser.email).toLowerCase())}
+function canEdit(r){return isSupervisor() || ownsRecord(r)}
+function canDelete(r){return isAdmin()}
 function tableRows(records, actions=true){
- return `<table><thead><tr><th>Case No.</th><th>Offence</th><th>Dec/Victim</th><th>Date Committed</th><th>Assignee/IO</th><th>Review Type</th><th>Review Date</th><th>Next Review Date / Due Date</th><th>Review Count</th><th>Status</th>${actions?'<th class="no-print">Action</th>':''}</tr></thead><tbody>${records.map(r=>{let st=statusFor(r.next_review_date);return `<tr><td>${r.case_no}</td><td>${r.offence}</td><td>${victimText(r)}</td><td>${r.date_committed||''}</td><td>${r.assignee||''}</td><td>${r.review_type||''}</td><td>${r.review_date||''}</td><td>${r.next_review_date||''}</td><td><b>${reviewCount(r)}</b><details class="no-print"><summary>History</summary>${reviewHistoryText(r)}</details></td><td class="${cls(st)}">${st}</td>${actions?`<td class="no-print">${canEdit(r)?`<button class="btn btn-blue btn-small" onclick="editRecord('${r.id}')">Edit</button>`:''}<button class="btn btn-red btn-small" onclick="deleteRecord('${r.id}')">Delete</button></td>`:''}</tr>`}).join('')}</tbody></table>`;
+ return `<table><thead><tr><th>Case No.</th><th>Offence</th><th>Dec/Victim</th><th>Date Committed</th><th>Assignee/IO</th><th>Review Type</th><th>Review Date</th><th>Next Review Date / Due Date</th><th>Review Count</th><th>Status</th>${actions?'<th class="no-print">Action</th>':''}</tr></thead><tbody>${records.map(r=>{let st=statusFor(r.next_review_date);let owner=ownsRecord(r);let editAllowed=canEdit(r);let deleteAllowed=canDelete(r);return `<tr><td>${r.case_no}</td><td>${r.offence}</td><td>${victimText(r)}</td><td>${r.date_committed||''}</td><td>${r.assignee||''}</td><td>${r.review_type||''}</td><td>${r.review_date||''}</td><td>${r.next_review_date||''}</td><td><b>${reviewCount(r)}</b><details class="no-print"><summary>History</summary>${reviewHistoryText(r)}</details></td><td class="${cls(st)}">${st}</td>${actions?`<td class="no-print">${editAllowed?`<button class="btn btn-blue btn-small" onclick="editRecord('${r.id}')">Edit</button>`:`<span class="badge" title="You may view this record but cannot edit it because it was created by another user.">View Only</span>`}${deleteAllowed?`<button class="btn btn-red btn-small" onclick="deleteRecord('${r.id}')">Delete</button>`:''}</td>`:''}</tr>`}).join('')}</tbody></table>`;
 }
 function renderRecords(){
  let q=(searchBox?.value||'').toLowerCase();
@@ -565,10 +568,11 @@ function renderRecords(){
  recordsTable.innerHTML=tableRows(rs,true); updateMetrics();
 }
 function editRecord(id){
- let r=RECORDS.find(x=>x.id===id); if(!canEdit(r))return alert('You do not have permission to edit this record.');
+ let r=RECORDS.find(x=>x.id===id); if(!canEdit(r))return alert('Access denied. Users may view all records, but may edit only records they created.');
  editId=id;caseNo.value=r.case_no||'';offence.value=r.offence||'';dateCommitted.value=r.date_committed||'';complainant.value=r.complainant||'';suspect.value=r.suspect||'';assignee.value=r.assignee||'';reviewType.value=r.review_type||'Initial Vetting';reviewDate.value=r.review_date||'';nextReviewDate.value=r.next_review_date||'';remarks.value=r.remarks||'';victimBox.innerHTML='';(r.victims||[]).forEach(v=>addVictimRow(v.name,v.type));if(!(r.victims||[]).length)addVictimRow();updateCountdownPreview();showSecById('entry');
 }
 async function deleteRecord(id){
+ if(!isAdmin())return alert('Only Admin can delete records.');
  if(!confirm('Delete this active record? An imprint will remain for Admin.'))return;
  let r=RECORDS.find(x=>x.id===id);
  await sb.from('deleted_records').insert({record_id:id,case_no:r.case_no,snapshot:r,deleted_by:currentUser.id,deleted_by_email:currentUser.email});
@@ -717,7 +721,7 @@ async function submitAdminRecovery(){
     return showAdminRecoveryMessage(data?.message || 'Recovery denied.');
   }
 
-  const redirectTo='https://ojroyo-web.github.io/dcr-clarendon/?v=forcepass1';
+  const redirectTo='https://ojroyo-web.github.io/dcr-clarendon/?v=ownershipv4';
   const {error:resetError}=await sb.auth.resetPasswordForEmail(email,{redirectTo});
   if(resetError)return showAdminRecoveryMessage(resetError.message);
 
