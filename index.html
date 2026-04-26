@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>DCR Clarendon Case Review System — User Management v1</title>
+<title>DCR Clarendon Case Review System — User Management v3</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{
@@ -89,7 +89,7 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     <div class="field"><label>New Password</label><input id="recoverPass1" type="password" autocomplete="new-password"></div>
     <div class="field"><label>Confirm New Password</label><input id="recoverPass2" type="password" autocomplete="new-password"></div>
     <button class="btn btn-primary" onclick="updateRecoveredPassword()">Update Password</button>
-    <button class="btn btn-dark" style="margin-top:8px" onclick="location.href='https://ojroyo-web.github.io/dcr-clarendon/?v=usermgmt1'">Return to Login</button>
+    <button class="btn btn-dark" style="margin-top:8px" onclick="location.href='https://ojroyo-web.github.io/dcr-clarendon/?v=usermgmt3'">Return to Login</button>
     <div class="sub" style="margin-top:18px;text-align:center;font-size:12px;opacity:.82">Developed by Royal</div>
   </div>
 </div>
@@ -98,7 +98,7 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 <div id="adminRecoveryWrap" class="login-wrap hidden">
   <div class="login-card">
     <h1>DCR Clarendon</h1>
-    <div class="sub">Admin User Management v1</div>
+    <div class="sub">Admin User Management v3</div>
     <div id="adminRecoveryMsg" class="msg hidden"></div>
     <p class="sub">Enter the Admin email and saved 4-digit Recovery PIN. If verified, a secure password reset email will be sent.</p>
     <div class="field"><label>Admin Email</label><input id="recoveryEmail" type="email" placeholder="admin email"></div>
@@ -130,7 +130,7 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   <aside class="sidebar no-print">
     <div class="brand">
       <h2>DCR Command Centre</h2>
-      <p>Clarendon Division</p><p style="opacity:.45;font-size:10px">Build: User Management v1</p>
+      <p>Clarendon Division</p><p style="opacity:.45;font-size:10px">Build: User Management v3</p>
       <p id="whoami"></p>
     </div>
     <div class="nav">
@@ -255,7 +255,7 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     <section id="admin" class="section">
       <div class="grid">
         <div class="card">
-          <h3>User Management v1</h3>
+          <h3>User Management v3</h3>
           <p class="sub">Create staff accounts, assign roles, reset passwords and deactivate users directly from the DCR app.</p>
           <div id="userMgmtMsg" class="msg hidden"></div>
           <div class="field"><label>User Email</label><input id="adminNewUser" type="email" placeholder="staff email"></div>
@@ -304,7 +304,7 @@ async function updateRecoveredPassword(){
   const {error}=await sb.auth.updateUser({password:p1});
   if(error)return showRecoveryMessage(error.message);
   showRecoveryMessage('Password updated successfully. You may now login with your new password.');
-  setTimeout(async()=>{await sb.auth.signOut(); location.href='https://ojroyo-web.github.io/dcr-clarendon/?v=usermgmt1';},1800);
+  setTimeout(async()=>{await sb.auth.signOut(); location.href='https://ojroyo-web.github.io/dcr-clarendon/?v=usermgmt3';},1800);
 }
 async function changeLoggedInPassword(){
   const p1=document.getElementById('accountPass1').value;
@@ -661,7 +661,7 @@ async function submitAdminRecovery(){
     return showAdminRecoveryMessage(data?.message || 'Recovery denied.');
   }
 
-  const redirectTo='https://ojroyo-web.github.io/dcr-clarendon/?v=usermgmt1';
+  const redirectTo='https://ojroyo-web.github.io/dcr-clarendon/?v=usermgmt3';
   const {error:resetError}=await sb.auth.resetPasswordForEmail(email,{redirectTo});
   if(resetError)return showAdminRecoveryMessage(resetError.message);
 
