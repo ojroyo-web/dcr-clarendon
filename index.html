@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>DCR Clarendon Case Review System — Password Fix v1</title>
+<title>DCR Clarendon Case Review System — Recovery v2</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{
@@ -89,7 +89,22 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     <div class="field"><label>New Password</label><input id="recoverPass1" type="password" autocomplete="new-password"></div>
     <div class="field"><label>Confirm New Password</label><input id="recoverPass2" type="password" autocomplete="new-password"></div>
     <button class="btn btn-primary" onclick="updateRecoveredPassword()">Update Password</button>
-    <button class="btn btn-dark" style="margin-top:8px" onclick="location.href='https://ojroyo-web.github.io/dcr-clarendon/?v=passwordfix1'">Return to Login</button>
+    <button class="btn btn-dark" style="margin-top:8px" onclick="location.href='https://ojroyo-web.github.io/dcr-clarendon/?v=recoveryv2'">Return to Login</button>
+    <div class="sub" style="margin-top:18px;text-align:center;font-size:12px;opacity:.82">Developed by Royal</div>
+  </div>
+</div>
+
+
+<div id="adminRecoveryWrap" class="login-wrap hidden">
+  <div class="login-card">
+    <h1>DCR Clarendon</h1>
+    <div class="sub">Admin Recovery v2</div>
+    <div id="adminRecoveryMsg" class="msg hidden"></div>
+    <p class="sub">Enter the Admin email and saved 4-digit Recovery PIN. If verified, a secure password reset email will be sent.</p>
+    <div class="field"><label>Admin Email</label><input id="recoveryEmail" type="email" placeholder="admin email"></div>
+    <div class="field"><label>4-Digit Recovery PIN</label><input id="recoveryPin" maxlength="4" inputmode="numeric" placeholder="••••"></div>
+    <button class="btn btn-primary" onclick="submitAdminRecovery()">Send Recovery Email</button>
+    <button class="btn btn-dark" style="margin-top:8px" onclick="showLoginScreen()">Return to Login</button>
     <div class="sub" style="margin-top:18px;text-align:center;font-size:12px;opacity:.82">Developed by Royal</div>
   </div>
 </div>
@@ -115,7 +130,7 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   <aside class="sidebar no-print">
     <div class="brand">
       <h2>DCR Command Centre</h2>
-      <p>Clarendon Division</p><p style="opacity:.45;font-size:10px">Build: Password Fix v1</p>
+      <p>Clarendon Division</p><p style="opacity:.45;font-size:10px">Build: Recovery v2</p>
       <p id="whoami"></p>
     </div>
     <div class="nav">
@@ -286,7 +301,7 @@ async function updateRecoveredPassword(){
   const {error}=await sb.auth.updateUser({password:p1});
   if(error)return showRecoveryMessage(error.message);
   showRecoveryMessage('Password updated successfully. You may now login with your new password.');
-  setTimeout(async()=>{await sb.auth.signOut(); location.href='https://ojroyo-web.github.io/dcr-clarendon/?v=passwordfix1';},1800);
+  setTimeout(async()=>{await sb.auth.signOut(); location.href='https://ojroyo-web.github.io/dcr-clarendon/?v=recoveryv2';},1800);
 }
 async function changeLoggedInPassword(){
   const p1=document.getElementById('accountPass1').value;
@@ -558,12 +573,47 @@ function renderAdmin(){
 
 async function renderAll(){await fetchAll();renderInvestigators();renderRecords();renderDue();renderAdmin();updateMetrics()}
 
-// Recovery shortcut placeholder: secure password reset requires Supabase Dashboard or Edge Function.
+function showLoginScreen(){
+  document.getElementById('adminRecoveryWrap').classList.add('hidden');
+  document.getElementById('recoveryWrap').classList.add('hidden');
+  document.getElementById('app').classList.add('hidden');
+  document.getElementById('loginWrap').classList.remove('hidden');
+}
+function showAdminRecovery(){
+  document.getElementById('loginWrap').classList.add('hidden');
+  document.getElementById('recoveryWrap').classList.add('hidden');
+  document.getElementById('app').classList.add('hidden');
+  document.getElementById('adminRecoveryWrap').classList.remove('hidden');
+}
+function showAdminRecoveryMessage(t){
+  let m=document.getElementById('adminRecoveryMsg');
+  m.textContent=t;
+  m.classList.remove('hidden');
+}
+async function submitAdminRecovery(){
+  const email=document.getElementById('recoveryEmail').value.trim().toLowerCase();
+  const pin=document.getElementById('recoveryPin').value.trim();
+  if(!email)return showAdminRecoveryMessage('Enter the Admin email address.');
+  if(!/^\d{4}$/.test(pin))return showAdminRecoveryMessage('Enter a valid 4-digit PIN.');
+
+  const {data,error}=await sb.rpc('verify_recovery_pin', {p_email: email, p_pin: pin});
+  if(error)return showAdminRecoveryMessage(error.message);
+  if(!data || data.allowed !== true){
+    return showAdminRecoveryMessage(data?.message || 'Recovery denied.');
+  }
+
+  const redirectTo='https://ojroyo-web.github.io/dcr-clarendon/?v=recoveryv2';
+  const {error:resetError}=await sb.auth.resetPasswordForEmail(email,{redirectTo});
+  if(resetError)return showAdminRecoveryMessage(resetError.message);
+
+  showAdminRecoveryMessage('Recovery verified. Check the email inbox for the secure password reset link.');
+  document.getElementById('recoveryPin').value='';
+}
 document.addEventListener('keydown',async function(e){
  if(document.getElementById('loginWrap').classList.contains('hidden'))return;
  if(e.ctrlKey&&e.shiftKey&&(e.key==='A'||e.key==='a')){
    e.preventDefault();
-   alert('Admin Recovery Shortcut detected. In the Supabase-hosted version, secure password reset will be handled through Supabase Auth or an Edge Function. Do not place service-role keys inside HTML.');
+   showAdminRecovery();
  }
 });
 </script>
