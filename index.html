@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>DCR Clarendon Case Review System — Supabase Ready</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  --bg:#07111f;--panel:#0d1b2f;--panel2:#10233d;--text:#eef5ff;--muted:#a9bad0;
+  --gold:#d6a84f;--blue:#3ea6ff;--green:#33d17a;--amber:#ffc857;--red:#ff5c5c;
+  --line:rgba(255,255,255,.12);--input:#09182b;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,Helvetica,sans-serif;background:linear-gradient(135deg,#050b14,#0a1c32);color:var(--text)}
+button,input,select,textarea{font:inherit}
+.hidden{display:none!important}
+.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+.login-card{width:430px;background:rgba(13,27,47,.96);border:1px solid var(--line);border-radius:20px;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+h1,h2,h3{margin:0 0 12px}.sub{color:var(--muted);font-size:14px;margin-bottom:20px}
+.field{margin-bottom:12px}.field label{display:block;color:var(--muted);font-size:13px;margin-bottom:6px}
+input,select,textarea{width:100%;background:var(--input);border:1px solid var(--line);border-radius:10px;color:var(--text);padding:11px}
+textarea{min-height:80px}
+.btn{border:0;border-radius:10px;padding:10px 14px;cursor:pointer;font-weight:700}
+.btn-primary{background:var(--gold);color:#09111e}.btn-blue{background:var(--blue);color:#04101d}.btn-red{background:var(--red);color:#fff}.btn-green{background:var(--green);color:#03140b}.btn-dark{background:#172a44;color:var(--text);border:1px solid var(--line)}
+.btn-small{font-size:12px;padding:7px 9px;margin:2px}.msg{padding:10px;border-radius:10px;margin:10px 0;background:#132946;color:var(--muted)}
+.app{display:grid;grid-template-columns:260px 1fr;min-height:100vh}
+.sidebar{background:#06101e;border-right:1px solid var(--line);padding:18px;position:sticky;top:0;height:100vh}
+.brand{border-bottom:1px solid var(--line);padding-bottom:15px;margin-bottom:15px}.brand h2{color:var(--gold);font-size:20px}.brand p{margin:0;color:var(--muted);font-size:12px}
+.nav button{display:block;width:100%;text-align:left;background:transparent;color:var(--text);border:1px solid transparent;padding:12px;border-radius:10px;margin:6px 0;cursor:pointer}
+.nav button.active,.nav button:hover{background:#10233d;border-color:var(--line)}
+.main{padding:22px;overflow:auto}.topbar{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:18px}
+.badge{display:inline-block;padding:5px 9px;border-radius:999px;background:#142b48;color:var(--muted);font-size:12px;margin-left:6px}
+.cards{display:grid;grid-template-columns:repeat(4,minmax(160px,1fr));gap:14px;margin-bottom:18px}
+.card{background:rgba(13,27,47,.94);border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:0 10px 25px rgba(0,0,0,.18)}
+.card .num{font-size:30px;font-weight:800;color:var(--gold)}.card .label{color:var(--muted);font-size:13px}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(260px,1fr));gap:14px}.grid3{display:grid;grid-template-columns:repeat(3,minmax(200px,1fr));gap:12px}
+table{width:100%;border-collapse:collapse;background:rgba(13,27,47,.94);border-radius:12px;overflow:hidden}
+th,td{border:1px solid var(--line);padding:10px;text-align:left;vertical-align:top;font-size:13px} th{background:#10233d;color:var(--gold)}
+.status-on{color:var(--green);font-weight:700}.status-due{color:var(--amber);font-weight:700}.status-over{color:var(--red);font-weight:700}
+.section{display:none}.section.active{display:block}.toolbar{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 14px}
+.victim-row{display:grid;grid-template-columns:1fr 160px 44px;gap:8px;margin:8px 0}
+.notice{border-left:4px solid var(--gold);background:#112542;padding:12px;border-radius:10px;color:var(--muted);margin-bottom:12px}
+.alert-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px}
+.alert-modal{max-width:620px;width:100%;background:#0d1b2f;border:1px solid var(--line);border-radius:20px;padding:22px;box-shadow:0 25px 80px rgba(0,0,0,.55)}
+.alert-title{color:var(--gold);font-size:24px;margin-bottom:8px}.alert-stats{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:16px 0}.alert-stat{background:#10233d;border:1px solid var(--line);border-radius:14px;padding:14px}.alert-stat .big{font-size:34px;font-weight:900}.alert-stat small{color:var(--muted)}
+.review-history{font-size:12px;color:var(--muted);line-height:1.45}.review-history b{color:var(--gold)}
+@media(max-width:900px){.app{grid-template-columns:1fr}.sidebar{height:auto;position:relative}.cards,.grid,.grid3,.alert-stats{grid-template-columns:1fr}.victim-row{grid-template-columns:1fr}.topbar{display:block}}
+@media print{body{background:#fff;color:#000}.sidebar,.topbar,.no-print,.btn,.toolbar{display:none!important}.app{display:block}.main{padding:0}.section{display:none!important}.section.printme{display:block!important}table{color:#000;background:#fff}th{background:#eee;color:#000}th,td{border:1px solid #000;font-size:10px;padding:6px}.card{box-shadow:none;border:1px solid #000;color:#000;background:#fff}@page{size:landscape;margin:10mm}}
+</style>
+</head>
+<body>
+
+<!-- IMPORTANT: Insert your Supabase details below in CONFIG -->
+<script>
+const SUPABASE_URL = "https://hnqzhesabwqccfjgjkya.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_OMaP1gcCfRUrE_gQDY5YLg_dRIxLyNW";
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+</script>
+
+<div id="loginWrap" class="login-wrap">
+  <div class="login-card">
+    <h1>DCR Clarendon</h1>
+    <div class="sub">Case Review Management System</div>
+    <div id="loginMsg" class="msg hidden"></div>
+    <div id="loginBox">
+      <div class="field"><label>Username / Email</label><input id="loginUser" autocomplete="username"></div>
+      <div class="field"><label>Password</label><input id="loginPass" type="password" autocomplete="current-password"></div>
+      <button class="btn btn-primary" onclick="login()">Login</button>
+      <div class="sub" style="margin-top:18px;text-align:center;font-size:12px;opacity:.82">Developed by Royal</div>
+      <div class="sub" style="margin-top:6px;text-align:center;font-size:12px;opacity:.65">🔒 Ctrl + Shift + A</div>
+    </div>
+    <div id="changeBox" class="hidden">
+      <h3>Create Your Private Password</h3>
+      <div class="sub">Your temporary password must be changed. Admin will not see your new password.</div>
+      <div class="field"><label>New Password</label><input id="newPass1" type="password"></div>
+      <div class="field"><label>Confirm Password</label><input id="newPass2" type="password"></div>
+      <button class="btn btn-primary" onclick="completePasswordChange()">Save Password</button>
+    </div>
+  </div>
+</div>
+
+<div id="loginAlert" class="alert-backdrop hidden no-print">
+  <div class="alert-modal">
+    <div class="alert-title">DCR Review Alert</div>
+    <p class="sub">The system has detected matters requiring immediate supervisory attention.</p>
+    <div class="alert-stats">
+      <div class="alert-stat"><div class="big" id="alertDue2">0</div><small>Cases due for review within two days</small></div>
+      <div class="alert-stat"><div class="big" id="alertOverdue">0</div><small>Cases past due for review</small></div>
+    </div>
+    <div class="toolbar">
+      <button class="btn btn-blue" onclick="viewDueFromAlert()">View Due / Overdue</button>
+      <button class="btn btn-primary" onclick="printDueSoonOnly()">Print Due in 2 Days</button>
+      <button class="btn btn-red" onclick="printOverdueOnly()">Print Past Due</button>
+      <button class="btn btn-dark" onclick="closeLoginAlert()">Close</button>
+    </div>
+  </div>
+</div>
+
+<div id="app" class="app hidden">
+  <aside class="sidebar no-print">
+    <div class="brand">
+      <h2>DCR Command Centre</h2>
+      <p>Clarendon Division</p>
+      <p id="whoami"></p>
+    </div>
+    <div class="nav">
+      <button onclick="showSec('dash')" class="active">🏠 Dashboard</button>
+      <button onclick="showSec('entry')">➕ Data Entry</button>
+      <button onclick="showSec('records')">📂 Case Records</button>
+      <button onclick="showSec('investigators')">👤 Investigators</button>
+      <button onclick="showSec('due')">⏰ Due Reviews</button>
+      <button onclick="showSec('reports')">📈 Reports / Export</button>
+      <button id="adminNav" onclick="showSec('admin')" class="hidden">⚙ Admin</button>
+      <button onclick="logout()">🚪 Logout</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar no-print">
+      <div><h1 id="pageTitle">Dashboard</h1><span class="badge" id="roleBadge"></span></div>
+    </div>
+
+    <section id="dash" class="section active">
+      <div class="cards">
+        <div class="card"><div class="num" id="mTotal">0</div><div class="label">Total Active Cases</div></div>
+        <div class="card"><div class="num" id="mDue2">0</div><div class="label">Due Within 2 Days</div></div>
+        <div class="card"><div class="num" id="mOver">0</div><div class="label">Overdue Cases</div></div>
+        <div class="card"><div class="num" id="mInv">0</div><div class="label">Investigators</div></div>
+      </div>
+      <div class="grid">
+        <div class="card"><h3>System Notice</h3><p class="sub">Dashboard values are calculated from live Supabase records. Deleted records remain as imprints until permanently removed by Admin.</p></div>
+        <div class="card"><h3>Permission Summary</h3><p class="sub">Users may add and edit only their own entries. Supervisors may edit all entries. Admins manage records, logs, and PIN settings.</p></div>
+      </div>
+    </section>
+
+    <section id="entry" class="section">
+      <div class="notice">Enter case review information. Countdown is calculated from Review Date to Next Review Date.</div>
+      <div class="grid3">
+        <div class="field"><label>Case No.</label><input id="caseNo"></div>
+        <div class="field"><label>Offence</label><input id="offence"></div>
+        <div class="field"><label>Date Committed</label><input id="dateCommitted" type="date"></div>
+        <div class="field"><label>Complainant</label><input id="complainant"></div>
+        <div class="field"><label>Suspect</label><input id="suspect"></div>
+        <div class="field"><label>Assignee / I.O.</label><input id="assignee" list="investigatorList" placeholder="Select or type investigator"></div>
+      </div>
+      <datalist id="investigatorList"></datalist>
+      <button class="btn btn-blue no-print" onclick="addAssigneeToInvestigators()">Add Assignee to Investigator List</button>
+      <h3 style="margin-top:18px">Dec/Victim</h3>
+      <div id="victimBox"></div>
+      <button class="btn btn-dark no-print" onclick="addVictimRow()">+ Add Victim / Deceased</button>
+      <h3 style="margin-top:18px">Review Details</h3>
+      <div class="grid3">
+        <div class="field"><label>Review Type</label><select id="reviewType"><option>Initial Vetting</option><option>Continuous Vetting</option><option>Case Review</option><option>Case Conference</option></select></div>
+        <div class="field"><label>Review Date</label><input id="reviewDate" type="date" onchange="updateCountdownPreview()"></div>
+        <div class="field"><label>Next Review Date / Due Date</label><input id="nextReviewDate" type="date" onchange="updateCountdownPreview()"></div>
+      </div>
+      <div class="card"><b>Countdown:</b> <span id="countdownPreview">Select dates</span></div>
+      <div class="field"><label>Remarks</label><textarea id="remarks"></textarea></div>
+      <div class="toolbar no-print">
+        <button class="btn btn-primary" onclick="saveEntry()">Save Entry</button>
+        <button class="btn btn-dark" onclick="clearForm()">Clear Form</button>
+      </div>
+    </section>
+
+    <section id="records" class="section">
+      <div class="toolbar no-print">
+        <input id="searchBox" placeholder="Search case no., suspect, complainant, offence, Assignee/I.O." oninput="renderRecords()">
+        <button class="btn btn-primary" onclick="printSection('records')">Export / Print PDF</button>
+      </div>
+      <div id="recordsTable"></div>
+    </section>
+
+    <section id="investigators" class="section">
+      <div class="grid">
+        <div class="card">
+          <h3>Add Investigator</h3>
+          <div class="field"><label>Investigator Name</label><input id="newInvestigator"></div>
+          <button class="btn btn-primary" onclick="addInvestigator()">Add Investigator</button>
+        </div>
+        <div class="card">
+          <h3>Investigator List</h3>
+          <div id="investigatorItems"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="due" class="section">
+      <div class="toolbar no-print">
+        <button class="btn btn-primary" onclick="printSection('due')">Export / Print Due & Overdue</button>
+        <button class="btn btn-blue" onclick="printDueSoonOnly()">Print Due in 2 Days</button>
+        <button class="btn btn-red" onclick="printOverdueOnly()">Print Past Due</button>
+      </div>
+      <div id="dueTable"></div>
+    </section>
+    <section id="printDueSoon" class="section"><h2>Upcoming Matters For Review</h2><div id="printDueSoonTable"></div></section>
+    <section id="printOverdue" class="section"><h2>Past-Due Matters For Review</h2><div id="printOverdueTable"></div></section>
+
+    <section id="reports" class="section">
+      <div class="card">
+        <h3>Export Options</h3>
+        <button class="btn btn-primary" onclick="printSection('records')">Print Case Records Landscape PDF</button>
+        <button class="btn btn-blue" onclick="printSection('due')">Print Due / Overdue Landscape PDF</button>
+      </div>
+    </section>
+
+    <section id="admin" class="section">
+      <div class="grid">
+        <div class="card">
+          <h3>User Management</h3>
+          <p class="sub">Static HTML cannot safely create Supabase Auth users by itself. Create users in Supabase Auth first, then add their profile here with the same email.</p>
+          <div class="field"><label>User Email</label><input id="adminNewUser"></div>
+          <div class="field"><label>Display Name</label><input id="adminDisplayName"></div>
+          <div class="field"><label>Role</label><select id="adminNewRole"><option value="user">User</option><option value="supervisor">Supervisor</option><option value="admin">Admin</option></select></div>
+          <button class="btn btn-primary" onclick="adminAddProfile()">Add / Update Profile</button>
+          <div id="usersTable" style="margin-top:14px"></div>
+        </div>
+        <div class="card">
+          <h3>Admin Recovery PIN</h3>
+          <p class="sub">Recovery PIN can be stored here for operational reference, but actual Supabase password reset must be done through Supabase Auth or an Edge Function.</p>
+          <div class="field"><label>New 4-Digit Recovery PIN</label><input id="newRecoveryPin" maxlength="4" placeholder="Enter 4 digits"></div>
+          <button class="btn btn-primary" onclick="changeRecoveryPin()">Save Recovery PIN</button>
+        </div>
+        <div class="card"><h3>Login History</h3><div id="loginLog"></div></div>
+      </div>
+      <div class="grid" style="margin-top:14px">
+        <div class="card"><h3>Change / Audit Trail</h3><div id="auditLog"></div></div>
+        <div class="card"><h3>Deleted Record Imprints</h3><div id="deletedLog"></div></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+let currentUser=null, currentProfile=null, editId=null;
+let RECORDS=[], INVESTIGATORS=[], PROFILES=[], AUDIT=[], LOGINS=[], DELETED=[], SETTINGS={};
+
+function showMsg(t){let m=document.getElementById('loginMsg');m.textContent=t;m.classList.remove('hidden')}
+function now(){return new Date().toLocaleString()}
+function todayStart(){let T=new Date();T.setHours(0,0,0,0);return T}
+function daysUntil(due){if(!due)return null;let T=todayStart();let D=new Date(due+'T00:00:00');return Math.round((D-T)/(1000*60*60*24))}
+function daysBetween(a,b){if(!a||!b)return null;let A=new Date(a+'T00:00:00'),B=new Date(b+'T00:00:00');return Math.round((B-A)/(1000*60*60*24))}
+function statusFor(due){let x=daysUntil(due); if(x===null)return 'No Due Date'; if(x<0)return 'Overdue'; if(x<=2)return 'Due Soon'; return 'On Time'}
+function cls(st){return st==='Overdue'?'status-over':st==='Due Soon'?'status-due':'status-on'}
+function role(){return currentProfile?.role||'user'}
+function isAdmin(){return role()==='admin'}
+function isSupervisor(){return role()==='supervisor'||role()==='admin'}
+
+async function login(){
+  const email=document.getElementById('loginUser').value.trim();
+  const password=document.getElementById('loginPass').value;
+  if(!email||!password)return showMsg('Enter username/email and password.');
+  const {data,error}=await sb.auth.signInWithPassword({email,password});
+  if(error){showMsg(error.message);return}
+  currentUser=data.user;
+  await loadProfile();
+  await logLogin();
+  startApp();
+}
+
+async function logout(){await sb.auth.signOut();location.reload()}
+
+async function loadProfile(){
+  const {data,error}=await sb.from('profiles').select('*').eq('id',currentUser.id).single();
+  if(error || !data){
+    currentProfile={id:currentUser.id,email:currentUser.email,display_name:currentUser.email,role:'user'};
+    await sb.from('profiles').upsert(currentProfile);
+  } else currentProfile=data;
+}
+
+async function logLogin(){
+  await sb.from('login_logs').insert({user_id:currentUser.id,email:currentUser.email,role:role()});
+}
+
+async function audit(action,details){
+  await sb.from('audit_logs').insert({user_id:currentUser?.id,email:currentUser?.email,action,details});
+}
+
+async function startApp(){
+  document.getElementById('loginWrap').classList.add('hidden');
+  document.getElementById('app').classList.remove('hidden');
+  document.getElementById('whoami').textContent=(currentProfile.display_name||currentUser.email)+' • '+role();
+  document.getElementById('roleBadge').textContent=role().toUpperCase();
+  document.getElementById('adminNav').classList.toggle('hidden',!isAdmin());
+  addVictimRow();
+  await renderAll();
+  setTimeout(showLoginAlert,250);
+}
+
+function showSec(id){
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active','printme'));
+  document.getElementById(id).classList.add('active');
+  document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('pageTitle').textContent=event.target.textContent.trim();
+  renderAll();
+}
+
+async function fetchAll(){
+  let r=await sb.from('case_records').select('*').order('created_at',{ascending:false});
+  RECORDS=r.data||[];
+  let i=await sb.from('investigators').select('*').order('name');
+  INVESTIGATORS=i.data||[];
+  if(isAdmin()){
+    let p=await sb.from('profiles').select('*').order('email');
+    PROFILES=p.data||[];
+    let a=await sb.from('audit_logs').select('*').order('created_at',{ascending:false}).limit(100);
+    AUDIT=a.data||[];
+    let l=await sb.from('login_logs').select('*').order('created_at',{ascending:false}).limit(100);
+    LOGINS=l.data||[];
+    let d=await sb.from('deleted_records').select('*').order('deleted_at',{ascending:false}).limit(100);
+    DELETED=d.data||[];
+    let s=await sb.from('settings').select('*');
+    SETTINGS={}; (s.data||[]).forEach(x=>SETTINGS[x.key]=x.value);
+  }
+}
+
+function addVictimRow(name='',type='Victim'){
+  let div=document.createElement('div');div.className='victim-row';
+  div.innerHTML=`<input placeholder="Name of victim/deceased" value="${name}"><select><option ${type==='Victim'?'selected':''}>Victim</option><option ${type==='Deceased'?'selected':''}>Deceased</option></select><button class="btn btn-red btn-small" onclick="this.parentElement.remove()">×</button>`;
+  document.getElementById('victimBox').appendChild(div);
+}
+function getVictims(){return [...document.querySelectorAll('#victimBox .victim-row')].map(r=>({name:r.children[0].value.trim(),type:r.children[1].value})).filter(x=>x.name)}
+function updateCountdownPreview(){let n=daysBetween(reviewDate.value,nextReviewDate.value);countdownPreview.textContent=n===null?'Select dates':(n+' day(s) from review date to next review date')}
+function clearForm(){editId=null;['caseNo','offence','dateCommitted','complainant','suspect','assignee','reviewDate','nextReviewDate','remarks'].forEach(id=>document.getElementById(id).value='');reviewType.value='Initial Vetting';victimBox.innerHTML='';addVictimRow();updateCountdownPreview()}
+
+async function saveEntry(){
+  let oldRec=null;
+  if(editId) oldRec=RECORDS.find(x=>x.id===editId);
+  if(oldRec && role()==='user' && oldRec.created_by!==currentUser.id) return alert('You can only edit entries you created.');
+  let history=oldRec?.review_history||[];
+  let rec={
+    case_no:caseNo.value.trim(),offence:offence.value.trim(),date_committed:dateCommitted.value||null,
+    complainant:complainant.value.trim(),suspect:suspect.value.trim(),assignee:assignee.value.trim(),
+    review_type:reviewType.value,review_date:reviewDate.value||null,next_review_date:nextReviewDate.value||null,
+    remarks:remarks.value.trim(),victims:getVictims(),updated_by:currentUser.id,updated_by_email:currentUser.email,
+    review_history:history
+  };
+  if(!rec.case_no||!rec.offence)return alert('Case No. and Offence are required.');
+  if(editId){
+    let reviewChanged=(oldRec.review_date!==rec.review_date)||(oldRec.next_review_date!==rec.next_review_date);
+    if(reviewChanged){
+      let isNew=confirm('You changed the Review Date and/or Next Review Date.\n\nOK = this is a new review event.\nCancel = correction/error fix only.');
+      if(isNew){
+        rec.review_history.push({time:now(),user:currentUser.email,reviewType:rec.review_type,fromReviewDate:oldRec.review_date||'',toReviewDate:rec.review_date||'',fromNextReviewDate:oldRec.next_review_date||'',toNextReviewDate:rec.next_review_date||'',note:'Recorded as a new review event'});
+        await audit('NEW REVIEW EVENT',rec.case_no+' review count now '+rec.review_history.length);
+      }else await audit('REVIEW DATE CORRECTION',rec.case_no+' dates corrected without increasing review count');
+    }
+    const {error}=await sb.from('case_records').update(rec).eq('id',editId);
+    if(error)return alert(error.message);
+    await audit('EDIT RECORD',rec.case_no);
+  }else{
+    rec.created_by=currentUser.id; rec.created_by_email=currentUser.email;
+    rec.review_history=[{time:now(),user:currentUser.email,reviewType:rec.review_type,fromReviewDate:'',toReviewDate:rec.review_date||'',fromNextReviewDate:'',toNextReviewDate:rec.next_review_date||'',note:'Initial review entry'}];
+    const {error}=await sb.from('case_records').insert(rec);
+    if(error)return alert(error.message);
+    await audit('CREATE RECORD',rec.case_no+' initial review count 1');
+  }
+  if(rec.assignee) await addInvestigatorName(rec.assignee,false);
+  clearForm(); await renderAll(); showSecById('records');
+}
+
+function showSecById(id){document.querySelectorAll('.section').forEach(s=>s.classList.remove('active','printme'));document.getElementById(id).classList.add('active');document.getElementById('pageTitle').textContent=id==='records'?'📂 Case Records':id;}
+
+function victimText(r){return (r.victims||[]).map(v=>`${v.name} (${v.type})`).join('<br>')}
+function reviewCount(r){return (r.review_history&&r.review_history.length)?r.review_history.length:0}
+function reviewHistoryText(r){
+ let h=r.review_history||[];
+ if(!h.length)return '<span class="sub">No review history</span>';
+ return '<div class="review-history">'+h.map((x,i)=>`<div><b>${i+1}.</b> ${x.time} — ${x.user}<br>${x.reviewType||''}: ${x.toReviewDate||''} → ${x.toNextReviewDate||''}<br><em>${x.note||''}</em></div>`).join('<hr style="border-color:rgba(255,255,255,.08)">')+'</div>';
+}
+function canEdit(r){return isSupervisor() || r.created_by===currentUser.id}
+function tableRows(records, actions=true){
+ return `<table><thead><tr><th>Case No.</th><th>Offence</th><th>Dec/Victim</th><th>Date Committed</th><th>Assignee/IO</th><th>Review Type</th><th>Review Date</th><th>Next Review Date / Due Date</th><th>Review Count</th><th>Status</th>${actions?'<th class="no-print">Action</th>':''}</tr></thead><tbody>${records.map(r=>{let st=statusFor(r.next_review_date);return `<tr><td>${r.case_no}</td><td>${r.offence}</td><td>${victimText(r)}</td><td>${r.date_committed||''}</td><td>${r.assignee||''}</td><td>${r.review_type||''}</td><td>${r.review_date||''}</td><td>${r.next_review_date||''}</td><td><b>${reviewCount(r)}</b><details class="no-print"><summary>History</summary>${reviewHistoryText(r)}</details></td><td class="${cls(st)}">${st}</td>${actions?`<td class="no-print">${canEdit(r)?`<button class="btn btn-blue btn-small" onclick="editRecord('${r.id}')">Edit</button>`:''}<button class="btn btn-red btn-small" onclick="deleteRecord('${r.id}')">Delete</button></td>`:''}</tr>`}).join('')}</tbody></table>`;
+}
+function renderRecords(){
+ let q=(searchBox?.value||'').toLowerCase();
+ let rs=RECORDS.filter(r=>!r.deleted).filter(r=>JSON.stringify(r).toLowerCase().includes(q));
+ recordsTable.innerHTML=tableRows(rs,true); updateMetrics();
+}
+function editRecord(id){
+ let r=RECORDS.find(x=>x.id===id); if(!canEdit(r))return alert('You do not have permission to edit this record.');
+ editId=id;caseNo.value=r.case_no||'';offence.value=r.offence||'';dateCommitted.value=r.date_committed||'';complainant.value=r.complainant||'';suspect.value=r.suspect||'';assignee.value=r.assignee||'';reviewType.value=r.review_type||'Initial Vetting';reviewDate.value=r.review_date||'';nextReviewDate.value=r.next_review_date||'';remarks.value=r.remarks||'';victimBox.innerHTML='';(r.victims||[]).forEach(v=>addVictimRow(v.name,v.type));if(!(r.victims||[]).length)addVictimRow();updateCountdownPreview();showSecById('entry');
+}
+async function deleteRecord(id){
+ if(!confirm('Delete this active record? An imprint will remain for Admin.'))return;
+ let r=RECORDS.find(x=>x.id===id);
+ await sb.from('deleted_records').insert({record_id:id,case_no:r.case_no,snapshot:r,deleted_by:currentUser.id,deleted_by_email:currentUser.email});
+ const {error}=await sb.from('case_records').update({deleted:true,deleted_by:currentUser.id,deleted_at:new Date().toISOString()}).eq('id',id);
+ if(error)return alert(error.message);
+ await audit('SOFT DELETE',r.case_no); await renderAll();
+}
+
+async function addInvestigatorName(n,show=true){
+ n=(n||'').trim(); if(!n)return;
+ const {error}=await sb.from('investigators').upsert({name:n},{onConflict:'name'});
+ if(error&&show)return alert(error.message);
+ if(show){await audit('ADD INVESTIGATOR',n); await renderAll();}
+}
+async function addInvestigator(){await addInvestigatorName(newInvestigator.value,true);newInvestigator.value=''}
+async function addAssigneeToInvestigators(){let n=assignee.value.trim();if(!n)return alert('Type an Assignee/I.O. first.');await addInvestigatorName(n,true);alert('Added to Investigator list.')}
+async function removeInvestigator(id,name){if(!confirm('Remove investigator from list? Existing records will not be changed.'))return;await sb.from('investigators').delete().eq('id',id);await audit('REMOVE INVESTIGATOR',name);await renderAll()}
+function renderInvestigators(){
+ investigatorList.innerHTML=INVESTIGATORS.map(x=>`<option value="${x.name}"></option>`).join('');
+ investigatorItems.innerHTML=INVESTIGATORS.map(x=>`<div class="toolbar"><span style="flex:1">${x.name}</span><button class="btn btn-red btn-small" onclick="removeInvestigator('${x.id}','${String(x.name).replaceAll("'","\\'")}')">Remove</button></div>`).join('')||'<p class="sub">No investigators added.</p>';
+}
+
+function activeRecords(){return RECORDS.filter(r=>!r.deleted)}
+function dueSoonRecords(){return activeRecords().filter(r=>{let x=daysUntil(r.next_review_date);return x!==null&&x>=0&&x<=2})}
+function overdueRecords(){return activeRecords().filter(r=>daysUntil(r.next_review_date)<0)}
+function renderDue(){dueTable.innerHTML=tableRows([...dueSoonRecords(),...overdueRecords()],false)}
+function updateMetrics(){mTotal.textContent=activeRecords().length;mDue2.textContent=dueSoonRecords().length;mOver.textContent=overdueRecords().length;mInv.textContent=INVESTIGATORS.length}
+function showLoginAlert(){alertDue2.textContent=dueSoonRecords().length;alertOverdue.textContent=overdueRecords().length;if(dueSoonRecords().length||overdueRecords().length)loginAlert.classList.remove('hidden')}
+function closeLoginAlert(){loginAlert.classList.add('hidden')}
+function viewDueFromAlert(){closeLoginAlert();showSecById('due');renderDue()}
+function printDueSoonOnly(){closeLoginAlert();printDueSoonTable.innerHTML=tableRows(dueSoonRecords(),false);printSection('printDueSoon')}
+function printOverdueOnly(){closeLoginAlert();printOverdueTable.innerHTML=tableRows(overdueRecords(),false);printSection('printOverdue')}
+function printSection(id){document.querySelectorAll('.section').forEach(s=>s.classList.remove('printme'));document.getElementById(id).classList.add('printme');window.print()}
+
+async function adminAddProfile(){
+ if(!isAdmin())return alert('Admin only.');
+ let email=adminNewUser.value.trim(), display=adminDisplayName.value.trim(), r=adminNewRole.value;
+ if(!email)return alert('Enter user email.');
+ const {data:authList,error:e1}=await sb.from('profiles').select('*').eq('email',email).maybeSingle();
+ let profile={email,display_name:display||email,role:r};
+ if(authList?.id) profile.id=authList.id;
+ const {error}=await sb.from('profiles').upsert(profile,{onConflict:'email'});
+ if(error)return alert(error.message);
+ await audit('ADD/UPDATE PROFILE',email+' as '+r); await renderAll();
+}
+async function changeRecoveryPin(){
+ if(!isAdmin())return alert('Admin only.');
+ let pin=newRecoveryPin.value.trim(); if(!/^\d{4}$/.test(pin))return alert('PIN must be exactly 4 digits.');
+ const {error}=await sb.from('settings').upsert({key:'recovery_pin',value:pin},{onConflict:'key'});
+ if(error)return alert(error.message);
+ await audit('CHANGE RECOVERY PIN','Admin recovery PIN updated');
+ newRecoveryPin.value=''; alert('Recovery PIN updated.');
+}
+function renderAdmin(){
+ if(!isAdmin())return;
+ usersTable.innerHTML=`<table><tr><th>Email</th><th>Name</th><th>Role</th></tr>${PROFILES.map(u=>`<tr><td>${u.email}</td><td>${u.display_name||''}</td><td>${u.role}</td></tr>`).join('')}</table>`;
+ loginLog.innerHTML=LOGINS.map(l=>`<div>${new Date(l.created_at).toLocaleString()} — ${l.email} (${l.role})</div>`).join('')||'No logins.';
+ auditLog.innerHTML=AUDIT.map(a=>`<div>${new Date(a.created_at).toLocaleString()} — <b>${a.email||''}</b> — ${a.action}: ${a.details}</div>`).join('')||'No audit logs.';
+ deletedLog.innerHTML=DELETED.map(x=>`<div><b>${x.case_no}</b> deleted by ${x.deleted_by_email} at ${new Date(x.deleted_at).toLocaleString()}</div>`).join('')||'No deleted imprints.';
+}
+
+async function renderAll(){await fetchAll();renderInvestigators();renderRecords();renderDue();renderAdmin();updateMetrics()}
+
+// Recovery shortcut placeholder: secure password reset requires Supabase Dashboard or Edge Function.
+document.addEventListener('keydown',async function(e){
+ if(document.getElementById('loginWrap').classList.contains('hidden'))return;
+ if(e.ctrlKey&&e.shiftKey&&(e.key==='A'||e.key==='a')){
+   e.preventDefault();
+   alert('Admin Recovery Shortcut detected. In the Supabase-hosted version, secure password reset will be handled through Supabase Auth or an Edge Function. Do not place service-role keys inside HTML.');
+ }
+});
+</script>
+</body>
+</html>
